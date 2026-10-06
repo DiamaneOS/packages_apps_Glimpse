@@ -73,9 +73,7 @@ dependencies {
     implementation(libs.androidx.recyclerview.selection)
     implementation(libs.androidx.viewpager2)
     implementation(libs.glide)
-    implementation(libs.glide.okhttp3.integration)
     implementation(libs.material)
-    implementation(libs.okhttp)
     implementation(libs.zoomimage.view.glide)
 }
 

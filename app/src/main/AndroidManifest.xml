@@ -8,7 +8,6 @@
     package="org.lineageos.glimpse">
 
     <uses-permission android:name="android.permission.ACCESS_MEDIA_LOCATION" />
-    <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission
         android:name="android.permission.MANAGE_MEDIA"
         tools:ignore="ProtectedPermissions" />
@@ -73,9 +72,6 @@
 
                 <data android:scheme="content" />
                 <data android:scheme="file" />
-                <data android:scheme="http" />
-                <data android:scheme="https" />
-                <data android:scheme="rtsp" />
             </intent-filter>
 
         </activity>

@@ -22,12 +22,9 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.mapLatest
 import kotlinx.coroutines.flow.stateIn
-import okhttp3.OkHttpClient
-import okhttp3.Request
 import org.lineageos.glimpse.ViewActivity
 import org.lineageos.glimpse.ext.applicationContext
 import org.lineageos.glimpse.ext.asArray
-import org.lineageos.glimpse.ext.executeAsync
 import org.lineageos.glimpse.ext.getParcelable
 import org.lineageos.glimpse.ext.getSerializable
 import org.lineageos.glimpse.models.Album
@@ -118,9 +115,6 @@ class IntentsViewModel(application: Application) : GlimpseViewModel(application)
             }
         }
     }
-
-    private val okHttpClient = OkHttpClient.Builder()
-        .build()
 
     private val currentIntent = MutableStateFlow<Intent?>(null)
 
@@ -270,6 +264,12 @@ class IntentsViewModel(application: Application) : GlimpseViewModel(application)
      * Given a URI and a pre-parsed media type, get a [MediaItem] object.
      */
     private suspend fun uriToContent(uri: Uri, mediaType: MediaType?): MediaItem<*>? {
+        // Glimpse has no network access: open local media only.
+        if (uri.scheme != "content" && uri.scheme != "file") {
+            Log.e(LOG_TAG, "Not opening a ${uri.scheme} URI: only local media is supported")
+            return null
+        }
+
         val type = mediaType ?: uriToType(uri) ?: run {
             Log.e(LOG_TAG, "Cannot get media type of $uri")
             return null
@@ -435,19 +435,6 @@ class IntentsViewModel(application: Application) : GlimpseViewModel(application)
                 "content", "file" -> applicationContext.contentResolver.getType(uri)?.let { type ->
                     MimeUtils.mimeTypeToMediaType(type)
                 }
-
-                "http", "https" -> okHttpClient.newCall(
-                    Request.Builder()
-                        .url(uri.toString())
-                        .head()
-                        .build()
-                ).executeAsync().use { response ->
-                    response.header("Content-Type")?.let { type ->
-                        MimeUtils.mimeTypeToMediaType(type)
-                    }
-                }
-
-                "rtsp" -> MediaType.VIDEO // This is either audio-only or A/V, fine either way
 
                 else -> null
             } ?: run {
