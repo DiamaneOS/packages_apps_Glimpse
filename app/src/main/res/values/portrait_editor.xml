@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- SPDX-FileCopyrightText: The DiamaneOS Project
+     SPDX-License-Identifier: Apache-2.0 -->
+<resources>
+    <string name="config_portrait_editor_package" translatable="false">app.grapheneos.camera</string>
+    <string name="file_action_edit_portrait">Edit Portrait</string>
+    <string name="portrait_edit_unavailable">Portrait editing is unavailable for this photo.</string>
+    <string name="media_info_saved_location">Saved location</string>
+</resources>

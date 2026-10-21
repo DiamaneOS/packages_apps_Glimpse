@@ -33,8 +33,11 @@ import androidx.viewpager2.widget.ViewPager2
 import com.google.android.material.appbar.AppBarLayout
 import com.google.android.material.appbar.MaterialToolbar
 import com.google.android.material.button.MaterialButton
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.launch
 import org.lineageos.glimpse.datasources.MediaError
 import org.lineageos.glimpse.ext.buildEditIntent
@@ -54,6 +57,7 @@ import org.lineageos.glimpse.models.RequestStatus
 import org.lineageos.glimpse.ui.dialogs.MediaInfoBottomSheetDialog
 import org.lineageos.glimpse.ui.recyclerview.MediaViewerAdapter
 import org.lineageos.glimpse.utils.MediaDialogsUtils
+import org.lineageos.glimpse.utils.PortraitEditor
 import org.lineageos.glimpse.utils.PermissionsChecker
 import org.lineageos.glimpse.utils.PermissionsUtils
 import org.lineageos.glimpse.viewmodels.IntentsViewModel
@@ -169,6 +173,31 @@ class ViewActivity : AppCompatActivity(R.layout.activity_view) {
         }
     }
 
+    private val portraitEditContract = registerForActivityResult(
+        ActivityResultContracts.StartActivityForResult()
+    ) { result ->
+        if (result.resultCode == RESULT_OK) result.data?.data?.let { uri ->
+            intentsViewModel.onIntent(Intent(Intent.ACTION_VIEW).setDataAndType(uri, "image/jpeg"))
+        }
+    }
+
+    private fun editPortrait() {
+        val uri = viewModel.displayedMedia.value?.uri ?: return
+        if (viewModel.secure.value || keyguardManager.isKeyguardLocked) return
+        lifecycleScope.launch {
+            val edit = withContext(Dispatchers.IO) { PortraitEditor.editIntent(this@ViewActivity, uri) }
+            if (viewModel.displayedMedia.value?.uri != uri || viewModel.secure.value || keyguardManager.isKeyguardLocked) return@launch
+            try {
+                if (edit == null) throw android.content.ActivityNotFoundException()
+                portraitEditContract.launch(edit)
+            } catch (_: android.content.ActivityNotFoundException) {
+                Toast.makeText(this@ViewActivity, R.string.portrait_edit_unavailable, Toast.LENGTH_SHORT).show()
+            } catch (_: SecurityException) {
+                Toast.makeText(this@ViewActivity, R.string.portrait_edit_unavailable, Toast.LENGTH_SHORT).show()
+            }
+        }
+    }
+
     private val mediaInfoBottomSheetDialogCallbacks = MediaInfoBottomSheetDialog.Callbacks(this)
 
     // Intents
@@ -215,6 +244,11 @@ class ViewActivity : AppCompatActivity(R.layout.activity_view) {
 
         toolbar.setOnMenuItemClickListener { menuItem ->
             when (menuItem.itemId) {
+                R.id.editPortrait -> {
+                    editPortrait()
+                    true
+                }
+
                 R.id.info -> {
                     viewModel.displayedMedia.value?.let {
                         MediaInfoBottomSheetDialog(
@@ -366,6 +400,22 @@ class ViewActivity : AppCompatActivity(R.layout.activity_view) {
 
     private suspend fun loadData() {
         coroutineScope {
+            launch {
+                combine(viewModel.displayedMedia, viewModel.secure) { media, secure ->
+                    media?.takeIf { !secure && it.mediaType == MediaType.IMAGE && it.mimeType == "image/jpeg" }
+                }.collectLatest { media ->
+                    val item = toolbar.menu.findItem(R.id.editPortrait)
+                    item.isVisible = false
+                    if (media != null) {
+                        val supported = withContext(Dispatchers.IO) {
+                            PortraitEditor.isEditable(this@ViewActivity, media.uri)
+                        }
+                        item.isVisible = supported && viewModel.displayedMedia.value?.uri == media.uri &&
+                            !viewModel.secure.value && !keyguardManager.isKeyguardLocked
+                    }
+                }
+            }
+
             launch {
                 intentsViewModel.parsedIntent.collectLatest { parsedIntent ->
                     parsedIntent?.handle {

@@ -18,6 +18,11 @@
     <uses-permission android:name="android.permission.READ_MEDIA_VIDEO" />
     <uses-permission android:name="android.permission.SET_WALLPAPER" />
 
+    <queries>
+        <provider android:authorities="app.grapheneos.camera.portrait" />
+        <package android:name="app.grapheneos.camera" />
+    </queries>
+
     <application
         android:name=".GlimpseApplication"
         android:appCategory="image"
