@@ -310,11 +310,28 @@ class ViewActivity : AppCompatActivity(R.layout.activity_view) {
 
         lifecycleScope.launch {
             lifecycle.repeatOnLifecycle(Lifecycle.State.STARTED) {
-                permissionsChecker.withPermissionsGranted {
+                // ACTION_VIEW can carry a grant for one photo without access to the
+                // library or location metadata. Its parsed ViewIntent enumerates only
+                // those explicitly supplied media items.
+                if (hasGrantedSingleMediaIntent()) {
                     loadData()
+                } else {
+                    permissionsChecker.withPermissionsGranted { loadData() }
                 }
             }
         }
+    }
+
+    private fun hasGrantedSingleMediaIntent(): Boolean {
+        val uri = intent.data ?: return false
+        val type = intent.type.orEmpty()
+        val clip = intent.clipData
+        return intent.action == Intent.ACTION_VIEW && uri.scheme == "content" &&
+            (type.startsWith("image/") || type.startsWith("video/")) &&
+            (clip == null || (clip.itemCount == 1 && clip.getItemAt(0).uri == uri)) &&
+            intent.flags and Intent.FLAG_GRANT_READ_URI_PERMISSION != 0 &&
+            checkUriPermission(uri, android.os.Process.myPid(), android.os.Process.myUid(),
+                Intent.FLAG_GRANT_READ_URI_PERMISSION) == android.content.pm.PackageManager.PERMISSION_GRANTED
     }
 
     override fun onResume() {
