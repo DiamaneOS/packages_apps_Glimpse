@@ -33,6 +33,7 @@ import androidx.viewpager2.widget.ViewPager2
 import com.google.android.material.appbar.AppBarLayout
 import com.google.android.material.appbar.MaterialToolbar
 import com.google.android.material.button.MaterialButton
+import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.coroutineScope
@@ -181,6 +182,26 @@ class ViewActivity : AppCompatActivity(R.layout.activity_view) {
         }
     }
 
+    /** The displayed photo when Camera reports it has Portrait data, for the Edit choice. */
+    private var portraitEditableUri: Uri? = null
+
+    private fun editImage(media: Media) {
+        dismissKeyguardAndRun {
+            startActivity(Intent.createChooser(buildEditIntent(media), null))
+        }
+    }
+
+    private fun chooseEdit(media: Media) {
+        MaterialAlertDialogBuilder(this)
+            .setItems(
+                arrayOf(getString(R.string.file_action_portrait_blur), getString(R.string.file_action_edit))
+            ) { _, which ->
+                if (viewModel.displayedMedia.value?.uri != media.uri) return@setItems
+                if (which == 0) editPortrait() else editImage(media)
+            }
+            .show()
+    }
+
     private fun editPortrait() {
         val uri = viewModel.displayedMedia.value?.uri ?: return
         if (viewModel.secure.value || keyguardManager.isKeyguardLocked) return
@@ -244,11 +265,6 @@ class ViewActivity : AppCompatActivity(R.layout.activity_view) {
 
         toolbar.setOnMenuItemClickListener { menuItem ->
             when (menuItem.itemId) {
-                R.id.editPortrait -> {
-                    editPortrait()
-                    true
-                }
-
                 R.id.info -> {
                     viewModel.displayedMedia.value?.let {
                         MediaInfoBottomSheetDialog(
@@ -301,13 +317,12 @@ class ViewActivity : AppCompatActivity(R.layout.activity_view) {
 
         adjustButton.setOnClickListener {
             viewModel.displayedMedia.value?.let {
-                dismissKeyguardAndRun {
-                    startActivity(
-                        Intent.createChooser(
-                            buildEditIntent(it),
-                            null
-                        )
-                    )
+                if (it.uri == portraitEditableUri && !viewModel.secure.value &&
+                    !keyguardManager.isKeyguardLocked
+                ) {
+                    chooseEdit(it)
+                } else {
+                    editImage(it)
                 }
             }
         }
@@ -404,14 +419,16 @@ class ViewActivity : AppCompatActivity(R.layout.activity_view) {
                 combine(viewModel.displayedMedia, viewModel.secure) { media, secure ->
                     media?.takeIf { !secure && it.mediaType == MediaType.IMAGE && it.mimeType == "image/jpeg" }
                 }.collectLatest { media ->
-                    val item = toolbar.menu.findItem(R.id.editPortrait)
-                    item.isVisible = false
+                    portraitEditableUri = null
                     if (media != null) {
                         val supported = withContext(Dispatchers.IO) {
                             PortraitEditor.isEditable(this@ViewActivity, media.uri)
                         }
-                        item.isVisible = supported && viewModel.displayedMedia.value?.uri == media.uri &&
+                        if (supported && viewModel.displayedMedia.value?.uri == media.uri &&
                             !viewModel.secure.value && !keyguardManager.isKeyguardLocked
+                        ) {
+                            portraitEditableUri = media.uri
+                        }
                     }
                 }
             }

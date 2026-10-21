@@ -6,11 +6,6 @@
 <menu xmlns:android="http://schemas.android.com/apk/res/android">
 
     <item
-        android:id="@+id/editPortrait"
-        android:title="@string/file_action_edit_portrait"
-        android:visible="false" />
-
-    <item
         android:id="@+id/useAs"
         style="@style/Theme.Glimpse.TopAppBarOption"
         android:contentDescription="@string/file_action_use_as"
